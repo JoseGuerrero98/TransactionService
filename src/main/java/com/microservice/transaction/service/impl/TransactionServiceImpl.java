@@ -37,142 +37,23 @@ public class TransactionServiceImpl implements TransactionService {
 			Mono<Boolean> existprodfirst = existProduct(transaction.getIdproductfirst());
 			
 			Mono<TypeProduct> typeprod = getTypeProduct(transaction.getIdproductfirst());
-			
+			System.out.println("**************************************************");
+			System.out.println("**************************************************");
+			System.out.println("**************************************************");
 			return existprodfirst.flatMap(prodfirst -> {
 				if(prodfirst) {
-					System.out.println("El producto existe");
+					
 					return typeprod.flatMap(prod -> {
 						
-						Mono<Boolean> existTypeTransaction = getExistTypeTransaction(prod.getTypeProduct(), transaction.getTypetransaction());
+						Mono<Boolean> validate = getValidateTransaction(transaction, prod);
 						
-						return existTypeTransaction.flatMap(typetrans -> {
+						return validate.flatMap(val -> {
 							
-							if(typetrans) {
-								
-								if(transaction.getTypetransaction().equals("TRANSFERENCIA") || transaction.getTypetransaction().equals("PAGO CREDITO")) {
-									
-									if(!(transaction.getIdproductsecond()==null || transaction.getIdproductsecond().equals(""))) {
-										
-										if(!transaction.getIdproductfirst().equals(transaction.getIdproductsecond())) {
-											Mono<Boolean> existprodsec = existProduct(transaction.getIdproductsecond());
-											
-											return existprodsec.flatMap(prodsec -> {
-												
-												if(prodsec) {
-													//validar transacciones con cuentas
-													Mono<TypeProduct> typeprodsec = getTypeProduct(transaction.getIdproductsecond());
-													
-													return typeprodsec.flatMap(productsec -> {
-														
-														if(productsec.getTypeProduct().equals("CUENTA")) {
-															if(!transaction.getTypetransaction().equals("PAGO CREDITO")) {
-																
-																Mono<Boolean> validateAmountAccount = validateAmountAccount(transaction.getIdproductfirst(), transaction.getAmount());
-																
-																return validateAmountAccount.flatMap(valamount-> {
-																	
-																	if(valamount) {
-																		
-																		Mono<Boolean> editprices = transactionAccountOptions(prod.getId(), prod.getAmount(), transaction.getAmount(), productsec.getId());
-																		
-																		return editprices.flatMap(editprice ->{
-																			
-																			if(editprice) {
-																				System.out.println("transferencia completada");
-																				return repo.save(transaction);
-																			}else {
-																				System.out.println("No se pudo hacer la transferencia");
-																				return Mono.empty();
-																			}
-																			
-																		});
-																		
-																		
-																	}else {
-																		System.out.println("No tiene sufiente saldo para esta transaccion");
-																		return Mono.empty();
-																	}
-																	
-																});
-																
-															}else {
-																System.out.println("No se puede hacer un pago de credito a una cuenta");
-																return Mono.empty();
-															}
-														}
-														
-														if(productsec.getTypeProduct().equals("CREDITO")) {
-															if(!transaction.getTypetransaction().equals("TRANSFERENCIA")) {
-
-																Mono<Boolean> validateAmountAccount = validateAmountAccount(transaction.getIdproductfirst(), transaction.getAmount());
-																
-																return validateAmountAccount.flatMap(valamount-> {
-																	
-																	if(valamount) {
-																		
-																		Mono<Boolean> editprices = transactionAccountOptions(prod.getId(), prod.getAmount(), transaction.getAmount(), productsec.getId());
-																		
-																		return editprices.flatMap(editprice ->{
-																			
-																			if(editprice) {
-																				System.out.println("pago credito completada");
-																				return repo.save(transaction);
-																			}else {
-																				System.out.println("No se pudo hacer el pago credito");
-																				return Mono.empty();
-																			}
-																			
-																		});
-																		
-																		
-																	}else {
-																		System.out.println("No tiene sufiente saldo para esta transaccion");
-																		return Mono.empty();
-																	}
-																	
-																});
-
-															}else {
-																System.out.println("No se puede hacer una transferencia a un credito");
-																return Mono.empty();
-															}
-														}
-														
-														return Mono.empty();
-														
-													});
-													
-												}else {
-													System.out.println("El segundo producto ingresado no existe");
-													return Mono.empty();
-												}
-											});
-										}else {
-											System.out.println("No puede poner las mismas cuentas");
-											return Mono.empty();
-										}
-										
-									}else {
-										System.out.println("El tipo de producto de la otra cuenta no puede ir vacio o nulo");
-										return Mono.empty();
-									}
-									
-								}else {
-									//validar solo transacciones simples
-									Mono<Boolean> respSimple = transactionSimple(prod.getId(), transaction.getTypetransaction(), transaction.getAmount());
-									System.out.println("validar solo transacciones simples");
-									return respSimple.flatMap(simple -> {
-										if(simple) {
-											return repo.save(transaction);
-										}else {
-											System.out.println("No se pudo hacer la transaccion");
-											return Mono.empty();
-										}
-									});
-								}
-								
+							if(val) {
+								System.out.println("Se completo la transferencia");;
+								return repo.save(transaction);
 							}else {
-								System.out.println("El tipo de transaccion no existe");
+								System.out.println("No se pudo completar la transferencia");;
 								return Mono.empty();
 							}
 							
@@ -195,23 +76,6 @@ public class TransactionServiceImpl implements TransactionService {
 			
 		}
 		
-		
-		//Mono<Boolean> existprod = existProduct(transaction.getIdproductfirst());
-		
-		//Mono<TypeProduct> typeprod = getTypeProduct(transaction.getIdproductfirst());
-		
-		/*return existprod.flatMap(existproduct -> {
-			if(existproduct) {
-				return repo.save(transaction);
-			}else {
-				//mensaje de: El producto no existe
-				System.out.println("El producto no existe");
-				return Mono.empty();
-			}
-			
-		});*/
-		
-		//return repo.save(transaction);
 	}
 	
 	@Override
@@ -319,7 +183,6 @@ public class TransactionServiceImpl implements TransactionService {
 			typeproduct.setCantTransaction(prod.getCantTransaction());
 			
 			if(prod.getTypeProduct().equals("CUENTA")) {
-				System.out.println("CUENTA...");
 				
 				Mono<Boolean> response = updatePriceAccount(typeproduct, idproduct2);
 				
@@ -327,7 +190,6 @@ public class TransactionServiceImpl implements TransactionService {
 			}
 			
 			if(prod.getTypeProduct().equals("CREDITO")) {
-				System.out.println("CREDITO...");
 				
 				Double creditAmount = prod.getCreditAmount() + amount;
 				typeproduct.setCreditAmount(creditAmount);
@@ -443,7 +305,7 @@ public class TransactionServiceImpl implements TransactionService {
 		});
 		
 	}
-	
+	//valida que sea el tipo de transaccion que esta permitido para cuenta
 	public Flux<Boolean> getTransactionAccount(String typetransaction) {
 		
 		TypeTransaction transaccion = new TypeTransaction();
@@ -458,7 +320,7 @@ public class TransactionServiceImpl implements TransactionService {
 		});
 		
 	}
-	
+	//valida que sea el tipo de transaccion que esta permitido para credito
 	public Flux<Boolean> getTransactionCredit(String typetransaction) {
 		
 		TypeTransaction transaccion = new TypeTransaction();
@@ -489,6 +351,199 @@ public class TransactionServiceImpl implements TransactionService {
 		}
 		
 		return Mono.just(false);
+		
+	}
+	
+	public Double getSumAmount(Double amount1, Double amount2) {
+		
+		Double amount = amount1 + amount2;
+		return amount;
+		
+	}
+	
+	public Double getResAmount(Double amount1, Double amount2) {
+		
+		Double amount = amount1 - amount2;
+		return amount;
+		
+	}
+	
+	public Double getAmount(String typetransaction, Double amount1, Double amount2) {
+		
+		Double amount = amount1 - amount2;
+		
+		switch (typetransaction) {
+		case "DEPOSITO":
+		case "PAGO DE CREDITO":
+			amount = getSumAmount(amount1,amount2);
+			break;
+		case "RETIRO":
+		case "TRANSFERENCIA":
+		case "PAGO CREDITO":
+		case "CARGAR CONSUMO":
+			amount = getResAmount(amount1,amount2);
+			break;
+		
+		}
+		
+		return amount;
+		
+	}
+	
+	public Mono<Boolean> validateTransactionProducts(TypeProduct typeproduct, TypeProduct newtypeproduct, Transaction transaction) {
+		
+		if(transaction.getIdproductsecond()== null || transaction.getIdproductsecond().equals(""))
+		{
+			Mono<TypeProduct> product2 = getTypeProduct(transaction.getIdproductsecond());
+			
+			return product2.flatMap(item -> {
+				
+				Mono<Boolean> complete;
+				
+				complete = updatePriceAccount(newtypeproduct, typeproduct.getId());
+
+				return complete.flatMap(resp -> {
+					
+					TypeProduct newproduct2 = new TypeProduct();
+					Double amount;
+					Mono<Boolean> complete2;
+					
+					amount = item.getAmount() + transaction.getAmount();
+					
+					newproduct2.setAmount(amount);
+					
+					switch (item.getTypeProduct()) {
+					case "CUENTA":
+						newproduct2.setCantTransaction(item.getCantTransaction());
+						break;
+					case "CREDITO":
+						Double credit = item.getCreditAmount() + transaction.getAmount();
+						newproduct2.setCreditAmount(credit);
+						break;
+					}
+					
+					complete2 = updatePriceAccount(newproduct2, item.getId());
+					
+					return complete2;
+					
+				});
+				
+			});
+			
+		}else {
+			System.out.println("El segundo id del producto no debe ser nulo o vacio");
+			return Mono.just(false);
+		}
+		
+	}
+	
+	public Mono<Boolean> getValidateTransaction(Transaction transaction,TypeProduct typeproduct1) {
+		
+		Mono<Boolean> valTypeTransaction = null;
+		
+		if(typeproduct1.getTypeProduct().equals("CUENTA")) {
+			
+			System.out.println("CUENTA");
+			
+			valTypeTransaction = getTransactionAccount(transaction.getTypetransaction()).next().switchIfEmpty(Mono.just(false));
+			
+			//validar si tiene fondos en la cuenta
+			switch (transaction.getTypetransaction()) {
+			case "RETIRO":
+			case "TRANSFERENCIA":
+			case "PAGO CREDITO":
+				if(typeproduct1.getAmount() < transaction.getAmount()) {
+					System.out.println("No tiene fondos en esta cuenta para esta transaccion");
+					return Mono.just(false);
+				}
+				break;
+			}
+			
+		}
+		
+		if(typeproduct1.getTypeProduct().equals("CREDITO")) {
+			
+			System.out.println("CREDITO");
+			
+			valTypeTransaction = getTransactionCredit(transaction.getTypetransaction()).next().switchIfEmpty(Mono.just(false));
+			
+			//validar si tiene fondos en el credito
+			if(transaction.getTypetransaction().equals("CARGAR CONSUMO")) {
+				if(typeproduct1.getCreditAmount() < transaction.getAmount()) {
+					System.out.println("Sobrepaso el limite de su credito, no puede realizar esta transaccion");
+					return Mono.just(false);
+				}
+			}
+			
+		}
+		
+		return valTypeTransaction.flatMap(valtype -> {
+			System.out.println(valtype);
+			Mono<Boolean> complete = null;
+			
+			if(valtype) {
+				Double amount1;
+				Double cant = typeproduct1.getCantTransaction();
+				System.out.println("Cantidad de transacciones actuales: " + cant);
+				Double newcant = 0.0;
+				
+				amount1 = getAmount(transaction.getTypetransaction(), typeproduct1.getAmount(), transaction.getAmount());
+				
+				TypeProduct newtypeproduct = new TypeProduct();
+				newtypeproduct.setAmount(amount1);
+				
+				System.out.println("MONTO DE DINERO" + amount1);
+				switch (transaction.getTypetransaction()) {
+				case "DEPOSITO":
+				case "RETIRO":
+					
+					if(cant > 0) {
+						newcant = typeproduct1.getCantTransaction() - 1;
+					}else {
+						System.out.println("validar las comisiones");
+					}
+					
+					System.out.println("CANTIDAD DE TRANSACCIONES DESPUES DE LA TRANSACION: " + newcant);
+					newtypeproduct.setCantTransaction(newcant);
+					
+					complete = updatePriceAccount(newtypeproduct, typeproduct1.getId());
+					
+					break;
+				case "PAGO DE CREDITO":
+				case "CARGAR CONSUMO":
+					
+					Double credit = getAmount(transaction.getTypetransaction(), typeproduct1.getCreditAmount(), transaction.getAmount());
+					newtypeproduct.setCreditAmount(credit);
+					System.out.println("MONTO DE CREDITO" + credit);
+					complete = updatePriceCredit(newtypeproduct, typeproduct1.getId());
+					break;
+				
+				case "TRANSFERENCIA":
+				case "PAGO CREDITO":
+					
+					if(cant > 0) {
+						newcant = typeproduct1.getCantTransaction() - 1;
+					}else {
+						System.out.println("validar las comisiones");
+					}
+					newtypeproduct.setCantTransaction(newcant);
+					
+					System.out.println("transferencia con dos cuentas");
+					complete = validateTransactionProducts(typeproduct1, newtypeproduct, transaction);
+					break;
+				
+				}
+				
+				return complete;
+				
+			}else {
+				
+				System.out.println("Tipo de transaccion no valida para el producto seleccionado");
+				return Mono.just(false);
+				
+			}
+			
+		});
 		
 	}
 	

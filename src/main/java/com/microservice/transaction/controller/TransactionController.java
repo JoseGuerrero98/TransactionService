@@ -45,7 +45,7 @@ public class TransactionController {
 				ResponseEntity.created(URI.create("/transaction".concat(item.getId())))
 				.contentType(MediaType.APPLICATION_JSON)
 				.body(item)
-						);
+						).switchIfEmpty(Mono.just(new ResponseEntity<>(HttpStatus.BAD_REQUEST)));
 	}
 	
 	@PutMapping("/update/{id}")
